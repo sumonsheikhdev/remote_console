@@ -5,15 +5,16 @@ import 'package:remote_console/src/core/remote_console_engine.dart';
 import 'package:remote_console/src/core/remote_console_state.dart';
 import 'package:remote_console/src/event/console_event.dart';
 import 'package:remote_console/src/event/console_event_level.dart';
-import 'package:remote_console/src/identity/installation_storage.dart';
+
+import 'package:remote_console/src/identity/memory_installation_storage.dart';
 import 'package:remote_console/src/session/debug_session.dart';
 class RemoteConsole {
   RemoteConsole({
-    required InstallationStorage installationStorage,
+
     RemoteConsoleConfig config = const RemoteConsoleConfig(),
   }) : _engine = RemoteConsoleEngine(
           config: config,
-          installationStorage: installationStorage,
+          installationStorage: MemoryInstallationStorage(),
         );
 
   final RemoteConsoleEngine _engine;
