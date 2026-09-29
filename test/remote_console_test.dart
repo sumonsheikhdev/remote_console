@@ -26,7 +26,7 @@ void main() {
       'initializes through the public API',
       () async {
         final console = RemoteConsole(
-          installationStorage: MemoryInstallationStorage(),
+
         );
 
         expect(
@@ -53,7 +53,7 @@ void main() {
         final storage = MemoryInstallationStorage();
 
         final console = RemoteConsole(
-          installationStorage: storage,
+     
         );
 
         await console.initialize();
@@ -71,7 +71,7 @@ void main() {
       'controls developer mode',
       () async {
         final console = RemoteConsole(
-          installationStorage: MemoryInstallationStorage(),
+    
         );
 
         await console.initialize();
@@ -98,7 +98,7 @@ void main() {
       'controls debugging session',
       () async {
         final console = RemoteConsole(
-          installationStorage: MemoryInstallationStorage(),
+          
         );
 
         await console.initialize();
@@ -136,7 +136,7 @@ void main() {
       'exposes recent events',
       () async {
         final console = RemoteConsole(
-          installationStorage: MemoryInstallationStorage(),
+     
         );
 
         await console.initialize();
