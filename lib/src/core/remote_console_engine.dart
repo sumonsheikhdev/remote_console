@@ -10,6 +10,11 @@ import 'package:remote_console/src/event/console_event_level.dart';
 import 'package:remote_console/src/identity/installation_identity.dart';
 import 'package:remote_console/src/identity/installation_storage.dart';
 import 'package:remote_console/src/session/debug_session.dart';
+
+import 'package:remote_console/src/transport/console_transport.dart';
+import 'package:remote_console/src/transport/console_transport_event.dart';
+import 'package:remote_console/src/transport/web_socket_console_transport.dart';
+
 class RemoteConsoleEngine {
   RemoteConsoleEngine({
     required RemoteConsoleConfig config,
@@ -21,9 +26,33 @@ class RemoteConsoleEngine {
   final RemoteConsoleConfig _config;
   final ConsoleRingBuffer _buffer;
   final InstallationIdentity _identity;
+
   DebugSession? _debugSession;
-String? get installationId => _identity.value;
+
+  ConsoleTransport? _transport;
+
+  StreamSubscription<ConsoleTransportEvent>? _transportSubscription;
+
+  String? get installationId => _identity.value;
+
   DebugSession? get debugSession => _debugSession;
+
+  RemoteConsoleState _state = RemoteConsoleState.uninitialized;
+
+  RemoteConsoleState get state => _state;
+
+  RemoteConsoleConfig get config => _config;
+
+  List<ConsoleEvent> get recentEvents => _buffer.snapshot();
+
+  int get bufferedEventCount => _buffer.length;
+
+  bool get isDebugging => _state == RemoteConsoleState.debugging;
+
+  bool get isCapturing => _capture.isInstalled;
+
+  bool get isConnected => _transport?.isConnected ?? false;
+
   late final ConsoleCapture _capture = ConsoleCapture(
     onEvent:
         ({
@@ -41,19 +70,9 @@ String? get installationId => _identity.value;
         },
   );
 
-  RemoteConsoleState _state = RemoteConsoleState.uninitialized;
-
-  RemoteConsoleState get state => _state;
-
-  RemoteConsoleConfig get config => _config;
-
-  List<ConsoleEvent> get recentEvents => _buffer.snapshot();
-
-  int get bufferedEventCount => _buffer.length;
-
-  bool get isDebugging => _state == RemoteConsoleState.debugging;
-
-  bool get isCapturing => _capture.isInstalled;
+  // ---------------------------------------------------------------------------
+  // Initialization
+  // ---------------------------------------------------------------------------
 
   Future<void> initialize() async {
     if (_state != RemoteConsoleState.uninitialized) {
@@ -68,8 +87,79 @@ String? get installationId => _identity.value;
       _capture.install();
     }
 
+    if (_config.serverUrl != null && _config.serverUrl!.isNotEmpty) {
+      await _connectTransport();
+    }
+
     _state = RemoteConsoleState.ready;
   }
+
+  // ---------------------------------------------------------------------------
+  // WebSocket
+  // ---------------------------------------------------------------------------
+
+  Future<void> _connectTransport() async {
+    final serverUrl = _config.serverUrl;
+
+    if (serverUrl == null || serverUrl.isEmpty) {
+      return;
+    }
+
+    final installationId = _identity.value;
+
+    if (installationId == null) {
+      return;
+    }
+
+    final transport = WebSocketConsoleTransport(uri: Uri.parse(serverUrl));
+
+    _transport = transport;
+
+    _transportSubscription = transport.events.listen(_handleTransportEvent);
+
+    try {
+      await transport.connect();
+
+      await transport.send(
+        ConsoleTransportEvent(
+          type: 'installation.register',
+          payload: {'installationId': installationId},
+        ),
+      );
+    } catch (_) {
+      await _disconnectTransport();
+    }
+  }
+
+  void _handleTransportEvent(ConsoleTransportEvent event) {
+    switch (event.type) {
+      case 'connection.ready':
+        break;
+
+      case 'installation.registered':
+        break;
+
+      case 'error':
+        break;
+
+      default:
+        break;
+    }
+  }
+
+  Future<void> _disconnectTransport() async {
+    await _transportSubscription?.cancel();
+
+    _transportSubscription = null;
+
+    await _transport?.disconnect();
+
+    _transport = null;
+  }
+
+  // ---------------------------------------------------------------------------
+  // Recording
+  // ---------------------------------------------------------------------------
 
   ConsoleEvent record({
     ConsoleEventLevel level = ConsoleEventLevel.info,
@@ -94,12 +184,36 @@ String? get installationId => _identity.value;
       _buffer.add(event);
     }
 
+    _sendEvent(event);
+
     return event;
   }
+
+  void _sendEvent(ConsoleEvent event) {
+    final transport = _transport;
+
+    if (transport == null || !transport.isConnected) {
+      return;
+    }
+
+    unawaited(
+      transport.send(
+        ConsoleTransportEvent(type: 'console.event', payload: event.toJson()),
+      ),
+    );
+  }
+
+  // ---------------------------------------------------------------------------
+  // Capture
+  // ---------------------------------------------------------------------------
 
   FutureOr<void> runCaptured(FutureOr<void> Function() body) {
     return _capture.runZoned(body);
   }
+
+  // ---------------------------------------------------------------------------
+  // Developer mode
+  // ---------------------------------------------------------------------------
 
   void enableDeveloperMode() {
     if (_state != RemoteConsoleState.ready) {
@@ -108,13 +222,19 @@ String? get installationId => _identity.value;
 
     _state = RemoteConsoleState.developerMode;
   }
-void disableDeveloperMode() {
-  if (_state != RemoteConsoleState.developerMode) {
-    return;
+
+  void disableDeveloperMode() {
+    if (_state != RemoteConsoleState.developerMode) {
+      return;
+    }
+
+    _state = RemoteConsoleState.ready;
   }
 
-  _state = RemoteConsoleState.ready;
-}
+  // ---------------------------------------------------------------------------
+  // Debugging
+  // ---------------------------------------------------------------------------
+
   void startDebugging() {
     if (_state != RemoteConsoleState.developerMode) {
       return;
@@ -147,14 +267,27 @@ void disableDeveloperMode() {
     _state = RemoteConsoleState.developerMode;
   }
 
+  // ---------------------------------------------------------------------------
+  // Buffer
+  // ---------------------------------------------------------------------------
+
   void clearBuffer() {
     _buffer.clear();
   }
 
+  // ---------------------------------------------------------------------------
+  // Dispose
+  // ---------------------------------------------------------------------------
+
   Future<void> dispose() async {
     _capture.uninstall();
+
+    await _disconnectTransport();
+
     _debugSession = null;
+
     _buffer.clear();
+
     _state = RemoteConsoleState.stopped;
   }
 }
