@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:remote_console/src/buffer/console_ring_buffer.dart';
 import 'package:remote_console/src/capture/console_capture.dart';
 import 'package:remote_console/src/core/remote_console_config.dart';
@@ -73,7 +74,6 @@ class RemoteConsoleEngine {
   // ---------------------------------------------------------------------------
   // Initialization
   // ---------------------------------------------------------------------------
-
   Future<void> initialize() async {
     if (_state != RemoteConsoleState.uninitialized) {
       return;
@@ -81,17 +81,33 @@ class RemoteConsoleEngine {
 
     _state = RemoteConsoleState.initializing;
 
+    debugPrint('[RemoteConsole] Initializing...');
+
     await _identity.loadOrCreate();
+
+    debugPrint('[RemoteConsole] Installation ID: ${_identity.value}');
 
     if (_config.enabled) {
       _capture.install();
+
+      debugPrint('[RemoteConsole] Console capture enabled.');
     }
 
-    if (_config.serverUrl != null && _config.serverUrl!.isNotEmpty) {
+    final serverUrl = _config.serverUrl;
+
+    if (serverUrl != null && serverUrl.isNotEmpty) {
+      debugPrint('[RemoteConsole] Connecting to: $serverUrl');
+
       await _connectTransport();
+
+      debugPrint('[RemoteConsole] WebSocket connected: $isConnected');
+    } else {
+      debugPrint('[RemoteConsole] No server URL configured.');
     }
 
     _state = RemoteConsoleState.ready;
+
+    debugPrint('[RemoteConsole] Ready. Installation ID: ${_identity.value}');
   }
 
   // ---------------------------------------------------------------------------
@@ -123,7 +139,7 @@ class RemoteConsoleEngine {
       await transport.send(
         ConsoleTransportEvent(
           type: 'installation.register',
-          payload: {'installationId': installationId},
+          fields: {'installationId': installationId},
         ),
       );
     } catch (_) {

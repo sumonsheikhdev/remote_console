@@ -6,9 +6,7 @@ import 'console_transport.dart';
 import 'console_transport_event.dart';
 
 class WebSocketConsoleTransport implements ConsoleTransport {
-  WebSocketConsoleTransport({
-    required this.uri,
-  });
+  WebSocketConsoleTransport({required this.uri});
 
   final Uri uri;
 
@@ -24,8 +22,7 @@ class WebSocketConsoleTransport implements ConsoleTransport {
   bool get isConnected => _connected;
 
   @override
-  Stream<ConsoleTransportEvent> get events =>
-      _eventsController.stream;
+  Stream<ConsoleTransportEvent> get events => _eventsController.stream;
 
   @override
   Future<void> connect() async {
@@ -97,10 +94,17 @@ class WebSocketConsoleTransport implements ConsoleTransport {
       normalizedPayload = Map<String, Object?>.from(payload);
     }
 
+    final fields = <String, Object?>{...decoded}..remove('type');
+
+    if (decoded.containsKey('payload')) {
+      fields.remove('payload');
+    }
+
     _eventsController.add(
       ConsoleTransportEvent(
         type: type,
         payload: normalizedPayload,
+        fields: fields.isEmpty ? null : fields,
       ),
     );
   }

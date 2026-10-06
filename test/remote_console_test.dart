@@ -1,33 +1,15 @@
+
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:remote_console/src/core/remote_console.dart';
 import 'package:remote_console/src/core/remote_console_state.dart';
-import 'package:remote_console/src/identity/installation_storage.dart';
-class MemoryInstallationStorage implements InstallationStorage {
-  String? value;
-
-  @override
-  Future<String?> read() async => value;
-
-  @override
-  Future<void> write(String installationId) async {
-    value = installationId;
-  }
-
-  @override
-  Future<void> delete() async {
-    value = null;
-  }
-}
 
 void main() {
   group('RemoteConsole', () {
     test(
       'initializes through the public API',
       () async {
-        final console = RemoteConsole(
-
-        );
+        final console = RemoteConsole();
 
         expect(
           console.state,
@@ -41,7 +23,15 @@ void main() {
           RemoteConsoleState.ready,
         );
 
-        expect(console.installationId, isNotNull);
+        expect(
+          console.installationId,
+          isNotNull,
+        );
+
+        expect(
+          console.installationId,
+          isNotEmpty,
+        );
 
         await console.dispose();
       },
@@ -50,17 +40,18 @@ void main() {
     test(
       'exposes the installationId',
       () async {
-        final storage = MemoryInstallationStorage();
-
-        final console = RemoteConsole(
-     
-        );
+        final console = RemoteConsole();
 
         await console.initialize();
 
         expect(
           console.installationId,
-          storage.value,
+          isNotNull,
+        );
+
+        expect(
+          console.installationId,
+          isNotEmpty,
         );
 
         await console.dispose();
@@ -70,9 +61,7 @@ void main() {
     test(
       'controls developer mode',
       () async {
-        final console = RemoteConsole(
-    
-        );
+        final console = RemoteConsole();
 
         await console.initialize();
 
@@ -97,9 +86,7 @@ void main() {
     test(
       'controls debugging session',
       () async {
-        final console = RemoteConsole(
-          
-        );
+        final console = RemoteConsole();
 
         await console.initialize();
 
@@ -135,9 +122,7 @@ void main() {
     test(
       'exposes recent events',
       () async {
-        final console = RemoteConsole(
-     
-        );
+        final console = RemoteConsole();
 
         await console.initialize();
 
