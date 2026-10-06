@@ -150,15 +150,21 @@ class RemoteConsoleEngine {
   void _handleTransportEvent(ConsoleTransportEvent event) {
     switch (event.type) {
       case 'connection.ready':
+        debugPrint('[RemoteConsole] Server connection ready.');
         break;
 
       case 'installation.registered':
+        debugPrint(
+          '[RemoteConsole] Installation registered: '
+          '${event.fields?['installationId']}',
+        );
         break;
 
       case 'error':
-        break;
-
-      default:
+        debugPrint(
+          '[RemoteConsole] Server error: '
+          '${event.fields}',
+        );
         break;
     }
   }
